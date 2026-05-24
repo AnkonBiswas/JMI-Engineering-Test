@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Exports\ReadingExporter;
 use App\Http\Filters\ReadingFilter;
 use App\Http\Requests\StoreReadingRequest;
 use App\Http\Requests\UpdateReadingRequest;
@@ -16,7 +15,6 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\DB;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Port of wind_for_life/apps/anemometers/api/views.py::ReadingViewSet.
@@ -31,26 +29,15 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class ReadingController extends Controller
 {
     /**
-     * GET /api/readings — paginated, filterable by anemometer / tags_any / tags_exact.
-     *
-     * The `anemometer` UUID is validated at the edge because Postgres' uuid
-     * column type raises a SQL error on malformed input — the test DB
-     * (SQLite) would tolerate it silently and mask the bug.
+     * GET /api/readings — paginated, filterable by tags_any / tags_exact.
      *
      * @return array<string, mixed>
      */
     public function index(Request $request): array
     {
-        $request->validate([
-            'anemometer' => ['sometimes', 'uuid'],
-        ]);
-
         $query = Reading::query();
 
-        $query = ReadingFilter::apply(
-            $query,
-            $request->only(['anemometer', 'tags_any', 'tags_exact']),
-        );
+        $query = ReadingFilter::apply($query, $request->only(['tags_any', 'tags_exact']));
 
         $readings = $query->paginate();
 
@@ -58,35 +45,6 @@ class ReadingController extends Controller
             $readings,
             fn (Reading $r) => (new ReadingResource($r))->resolve(),
         );
-    }
-
-    /**
-     * GET /api/readings/export — stream all matching readings as CSV or JSON.
-     *
-     * Same filters as `index` (anemometer, tags_any, tags_exact). Default
-     * format is `csv`. The response is a download (Content-Disposition:
-     * attachment), not the DRF pagination envelope — exports are atomic
-     * complete datasets, not paginated views.
-     */
-    public function export(Request $request, ReadingExporter $exporter): StreamedResponse
-    {
-        $request->validate([
-            'format' => ['sometimes', 'in:csv,json'],
-            'anemometer' => ['sometimes', 'uuid'],
-        ]);
-
-        $format = (string) $request->query('format', 'csv');
-
-        $query = Reading::query();
-        $query = ReadingFilter::apply(
-            $query,
-            $request->only(['anemometer', 'tags_any', 'tags_exact']),
-        );
-
-        return match ($format) {
-            'json' => $exporter->streamJson($query),
-            default => $exporter->streamCsv($query),
-        };
     }
 
     /**

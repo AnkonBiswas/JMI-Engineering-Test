@@ -13,7 +13,6 @@ use App\Http\Filters\ReadingFilter;
 use App\Models\Anemometer;
 use App\Models\Reading;
 use App\Models\Tag;
-use Illuminate\Support\Collection;
 
 beforeEach(function (): void {
     $anemometer = Anemometer::factory()->create();
@@ -29,7 +28,7 @@ beforeEach(function (): void {
     ];
 });
 
-function applyReadingFilter(array $filters): Collection
+function applyReadingFilter(array $filters): \Illuminate\Support\Collection
 {
     return ReadingFilter::apply(Reading::query(), $filters)->pluck('id');
 }
@@ -59,17 +58,4 @@ it('filter_tags_exact multiple tags returns only the exact set match', function 
     expect($ids)->not->toContain($this->readings['gusty']->id);
     expect($ids)->not->toContain($this->readings['drafty_stormy']->id);
     expect($ids)->not->toContain($this->readings['calm']->id);
-});
-
-it('filter_anemometer returns only that anemometers readings', function (): void {
-    $other = Anemometer::factory()->create();
-    $otherReading = Reading::factory()->for($other)->create();
-
-    $ownerId = $this->readings['gusty']->anemometer_id;
-    $ids = applyReadingFilter(['anemometer' => $ownerId]);
-
-    foreach ($this->readings as $reading) {
-        expect($ids)->toContain($reading->id);
-    }
-    expect($ids)->not->toContain($otherReading->id);
 });
