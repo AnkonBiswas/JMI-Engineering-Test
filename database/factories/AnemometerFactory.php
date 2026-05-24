@@ -7,7 +7,7 @@ use App\Models\Reading;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Anemometer>
+ * @extends Factory<Anemometer>
  */
 class AnemometerFactory extends Factory
 {

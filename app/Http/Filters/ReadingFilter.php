@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Builder;
 /**
  * Laravel port of wind_for_life/apps/anemometers/filters.py (ReadingFilterSet).
  *
- * Supports two query params:
+ * Supports three query params:
+ *  - anemometer — exact UUID match on the parent anemometer.
  *  - tags_any   — comma-separated; reading has ANY of the listed tags (OR, distinct).
  *  - tags_exact — comma-separated; reading has EXACTLY this set of tags (AND + equality).
  *
@@ -17,16 +18,25 @@ use Illuminate\Database\Eloquent\Builder;
  *      AND whose tag set is a subset of the requested names (tag-count + whereIn).
  *   2. In-PHP filter comparing `set(tag.names) == set(requested)` to catch
  *      readings that share count but carry a different tag.
+ *
+ * Callers are expected to validate that `anemometer` is a UUID before
+ * invoking this filter — Postgres' `uuid` column type raises a SQL error
+ * on malformed input, so the validation is load-bearing in production
+ * even though SQLite (the test DB) tolerates it silently.
  */
 class ReadingFilter
 {
     /**
-     * Apply tag-based filters in place on the given builder.
+     * Apply filters in place on the given builder.
      *
      * @param  array<string, mixed>  $filters
      */
     public static function apply(Builder $query, array $filters): Builder
     {
+        if (! empty($filters['anemometer'])) {
+            $query = self::filterAnemometer($query, (string) $filters['anemometer']);
+        }
+
         if (! empty($filters['tags_any'])) {
             $query = self::filterTagsAny($query, (string) $filters['tags_any']);
         }
@@ -36,6 +46,14 @@ class ReadingFilter
         }
 
         return $query;
+    }
+
+    /**
+     * Exact anemometer FK match.
+     */
+    protected static function filterAnemometer(Builder $query, string $value): Builder
+    {
+        return $query->where('anemometer_id', $value);
     }
 
     /**

@@ -11,7 +11,6 @@
  */
 
 use App\Models\Anemometer;
-use App\Models\Reading;
 
 it('returns anemometer detail with id', function (): void {
     actingAsUser();
