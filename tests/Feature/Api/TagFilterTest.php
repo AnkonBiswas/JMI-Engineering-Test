@@ -12,6 +12,8 @@
 
 use App\Models\Anemometer;
 use App\Models\Reading;
+use App\Models\Tag;
+use Illuminate\Support\Collection;
 
 beforeEach(function (): void {
     actingAsUser();
@@ -73,7 +75,7 @@ it('tags_exact with multiple tags returns only the exact set match', function ()
  * Local helper — resolves (or creates) Tag rows for the given names and
  * returns them as a collection ready to be passed to hasAttached().
  */
-function tagsForNames(array $names): \Illuminate\Support\Collection
+function tagsForNames(array $names): Collection
 {
-    return collect($names)->map(fn (string $name) => \App\Models\Tag::firstOrCreate(['name' => $name]));
+    return collect($names)->map(fn (string $name) => Tag::firstOrCreate(['name' => $name]));
 }

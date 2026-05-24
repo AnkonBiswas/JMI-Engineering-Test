@@ -105,3 +105,32 @@ it('rejects reading creation for invalid anemometer uuid', function (): void {
     $response->assertStatus(422);
     $response->assertJsonValidationErrors(['anemometer']);
 });
+
+it('filters readings by anemometer', function (): void {
+    actingAsUser();
+    $target = Anemometer::factory()->create();
+    $other = Anemometer::factory()->create();
+    $targetReadings = Reading::factory()->count(3)->for($target)->create();
+    $otherReadings = Reading::factory()->count(2)->for($other)->create();
+
+    $response = $this->getJson("/api/readings?anemometer={$target->id}");
+
+    $response->assertOk();
+    $ids = collect($response->json('results'))->pluck('id')->all();
+    expect($ids)->toHaveCount(3);
+    foreach ($targetReadings as $r) {
+        expect($ids)->toContain($r->id);
+    }
+    foreach ($otherReadings as $r) {
+        expect($ids)->not->toContain($r->id);
+    }
+});
+
+it('rejects readings filter with malformed anemometer uuid', function (): void {
+    actingAsUser();
+
+    $response = $this->getJson('/api/readings?anemometer=not-a-uuid');
+
+    $response->assertStatus(422);
+    $response->assertJsonValidationErrors(['anemometer']);
+});

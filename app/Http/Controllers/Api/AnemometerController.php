@@ -9,17 +9,23 @@ use App\Http\Resources\AnemometerResource;
 use App\Http\Resources\RecentReadingsAnemometerResource;
 use App\Http\Responses\DrfPagination;
 use App\Models\Anemometer;
+use App\Repositories\AnemometerRepository;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Carbon;
 
 /**
  * Port of wind_for_life/apps/anemometers/api/views.py::AnemometerViewSet.
+ *
+ * Persistence is delegated to {@see AnemometerRepository} — the first
+ * concrete repository in the codebase. Controllers stay thin: parse HTTP,
+ * call the repository, shape the response.
  */
 class AnemometerController extends Controller
 {
+    public function __construct(private readonly AnemometerRepository $anemometers) {}
+
     /**
      * GET /api/anemometers — paginated list.
      *
@@ -27,10 +33,8 @@ class AnemometerController extends Controller
      */
     public function index(Request $request): array
     {
-        $anemometers = Anemometer::query()->paginate();
-
         return DrfPagination::shape(
-            $anemometers,
+            $this->anemometers->paginate(),
             fn (Anemometer $a) => (new AnemometerResource($a))->resolve(),
         );
     }
@@ -40,9 +44,9 @@ class AnemometerController extends Controller
      */
     public function show(string $id): AnemometerDetailResource
     {
-        $anemometer = Anemometer::with('readings.tags')->findOrFail($id);
-
-        return new AnemometerDetailResource($anemometer);
+        return new AnemometerDetailResource(
+            $this->anemometers->findWithReadings($id),
+        );
     }
 
     /**
@@ -50,7 +54,7 @@ class AnemometerController extends Controller
      */
     public function store(StoreAnemometerRequest $request): JsonResponse
     {
-        $anemometer = Anemometer::create($request->validated());
+        $anemometer = $this->anemometers->create($request->validated());
 
         return (new AnemometerResource($anemometer))
             ->response()
@@ -62,8 +66,8 @@ class AnemometerController extends Controller
      */
     public function update(UpdateAnemometerRequest $request, string $id): AnemometerResource
     {
-        $anemometer = Anemometer::findOrFail($id);
-        $anemometer->update($request->validated());
+        $anemometer = $this->anemometers->findOrFail($id);
+        $this->anemometers->update($anemometer, $request->validated());
 
         return new AnemometerResource($anemometer);
     }
@@ -73,8 +77,8 @@ class AnemometerController extends Controller
      */
     public function destroy(string $id): Response
     {
-        $anemometer = Anemometer::findOrFail($id);
-        $anemometer->delete();
+        $anemometer = $this->anemometers->findOrFail($id);
+        $this->anemometers->delete($anemometer);
 
         return response()->noContent();
     }
@@ -89,44 +93,8 @@ class AnemometerController extends Controller
      */
     public function recentReadings(Request $request): array
     {
-        $now = Carbon::now();
-        $dayAgo = $now->copy()->subDay();
-        $weekAgo = $now->copy()->subWeek();
-
-        $anemometers = Anemometer::query()
-            ->selectSub(
-                fn ($q) => $q->from('readings')
-                    ->selectRaw('AVG(speed)')
-                    ->whereColumn('readings.anemometer_id', 'anemometers.id')
-                    ->where('readings.recorded_at', '>=', $dayAgo),
-                'average_daily_speed',
-            )
-            ->selectSub(
-                fn ($q) => $q->from('readings')
-                    ->selectRaw('AVG(speed)')
-                    ->whereColumn('readings.anemometer_id', 'anemometers.id')
-                    ->where('readings.recorded_at', '>=', $weekAgo),
-                'average_weekly_speed',
-            )
-            ->addSelect('anemometers.*')
-            ->paginate();
-
-        // Attach the 5 most-recent readings to each model instance so the
-        // resource can surface them under `recent_readings`.
-        $anemometers->getCollection()->transform(function (Anemometer $a): Anemometer {
-            $recent = $a->readings()
-                ->withoutGlobalScopes()
-                ->with('tags')
-                ->orderByDesc('recorded_at')
-                ->limit(5)
-                ->get();
-            $a->setAttribute('recent_readings', $recent);
-
-            return $a;
-        });
-
         return DrfPagination::shape(
-            $anemometers,
+            $this->anemometers->paginateWithRecentAggregates(),
             fn (Anemometer $a) => (new RecentReadingsAnemometerResource($a))->resolve(),
         );
     }
