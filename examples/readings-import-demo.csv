@@ -1,0 +1,5 @@
+anemometer_id,speed,recorded_at,tags
+<anemometer-uuid>,12.5,2020-06-15T08:00:00Z,historical;gusty
+<anemometer-uuid>,8.3,2020-06-15T09:00:00Z,calm
+<anemometer-uuid>,42.0,2021-01-01T00:00:00Z,new-year;celebration;stormy
+<anemometer-uuid>,15.7,2024-12-31T23:59:59Z,

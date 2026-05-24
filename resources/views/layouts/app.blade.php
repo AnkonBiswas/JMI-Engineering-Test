@@ -30,6 +30,9 @@
               <li class="nav-item">
                 <a class="nav-link" href="/about">About</a>
               </li>
+              <li class="nav-item">
+                <a class="nav-link" href="/api/docs">API Docs</a>
+              </li>
             </ul>
           </div>
         </div>
