@@ -17,3 +17,4 @@ use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'pages.home')->name('home');
 Route::view('/about', 'pages.about')->name('about');
+Route::view('/api/docs', 'pages.api-docs')->name('api.docs');
